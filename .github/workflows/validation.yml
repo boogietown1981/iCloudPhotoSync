@@ -1,0 +1,20 @@
+name: iCloudPhotoSync 1.8.0 validation
+on:
+  push:
+    branches: [main, fix/v1.8.0-stability-security]
+  pull_request:
+
+jobs:
+  regression-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Python syntax check
+        run: python -m compileall -q spk/icloudphotosync/src
+      - name: Shell syntax check
+        run: bash -n build.sh && sh -n spk/icloudphotosync/src/service-setup.sh
+      - name: Regression tests
+        run: python -m unittest discover -s tests -v

@@ -53,6 +53,12 @@ def _start(params):
     if not account_id or not old_dir or not new_dir:
         return {"success": False, "error": {"code": 301, "message": "account_id/old_dir/new_dir required"}}
 
+    if not config_manager.get_account(account_id):
+        return {"success": False, "error": {"code": 302, "message": "Account not found"}}
+    configured_target = config_manager.get_sync_config(account_id).get("target_dir", "")
+    if not configured_target or os.path.realpath(new_dir) != os.path.realpath(configured_target):
+        return {"success": False, "error": {"code": 306,
+            "message": "Move destination must match the configured account target"}}
     sp = SyncProgress.load(account_id)
     if sp.status in ("syncing", "starting"):
         return {"success": False, "error": {"code": 303, "message": "Sync l\u00e4uft — bitte erst anhalten."}}

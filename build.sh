@@ -3,7 +3,7 @@
 set -euo pipefail
 
 PKG_NAME="iCloudPhotoSync"
-PKG_VER="1.7.0"
+PKG_VER="1.8.0"
 PKG_REV="1"
 DISPLAY_NAME="iCloud Photo Sync"
 DESCRIPTION="Automatically mirrors your iCloud photo library to a Synology NAS."
@@ -119,28 +119,9 @@ is_running() {
 }
 
 grant_share_access() {
-    # Grant the package user RW access to all configured target shares.
-    # Extracts the top-level share name from each account's target_dir
-    # and calls synoshare via sudo (sudoers entry created by postinst).
-    PKG_USER="iCloudPhotoSync"
-    SYNOSHARE="/usr/syno/sbin/synoshare"
-    [ -x "$SYNOSHARE" ] || return 0
-    for cfg in "$VAR_DIR"/accounts/*/sync_config.json; do
-        [ -f "$cfg" ] || continue
-        # Extract target_dir value — lightweight JSON parse via Python
-        TDIR=$("$PYTHON" -c "
-import json, sys
-try:
-    d = json.load(open('$cfg'))
-    print(d.get('target_dir', ''))
-except: pass
-" 2>/dev/null)
-        [ -z "$TDIR" ] && continue
-        # Extract top-level share name: /volume1/photo/sub -> photo
-        SHARE=$(echo "$TDIR" | sed -n 's|^/volume[0-9]*/\([^/]*\).*|\1|p')
-        [ -z "$SHARE" ] && continue
-        sudo $SYNOSHARE --setuser "$SHARE" RW + "$PKG_USER" >> "$LOG_FILE" 2>&1 || true
-    done
+    # The package user must not receive root privileges.
+    # Configure folder permissions in DSM > Shared Folder > Permissions.
+    return 0
 }
 
 case $1 in
@@ -234,12 +215,9 @@ mkdir -p "$PKG_VAR/accounts" "$PKG_VAR/logs"
 [ -f "$PKG_VAR/config.json" ] || \
     echo '{"accounts": [], "default_target_dir": "/volume1/iCloudPhotos"}' > "$PKG_VAR/config.json"
 chown -R iCloudPhotoSync:iCloudPhotoSync "$PKG_VAR" 2>/dev/null || true
-# Allow CGI to grant share access and self-update without package restart
-cat > /etc/sudoers.d/iCloudPhotoSync <<'SUDOEOF'
-iCloudPhotoSync ALL=(root) NOPASSWD: /usr/syno/sbin/synoshare
-iCloudPhotoSync ALL=(root) NOPASSWD: /usr/syno/bin/synopkg install /tmp/ics_update_*
-SUDOEOF
-chmod 440 /etc/sudoers.d/iCloudPhotoSync
+# Do not create NOPASSWD sudo privileges for a web-exposed package.
+# DSM administrators must grant target share RW permissions explicitly.
+rm -f /etc/sudoers.d/iCloudPhotoSync 2>/dev/null || true
 # Clean legacy artifacts
 rm -f /etc/cron.d/iCloudPhotoSync 2>/dev/null || true
 exit 0
@@ -277,12 +255,8 @@ cat > "$BUILD_DIR/scripts/postupgrade" <<'EOF'
 #!/bin/sh
 PKG_VAR="${SYNOPKG_PKGVAR:-/var/packages/iCloudPhotoSync/var}"
 chown -R iCloudPhotoSync:iCloudPhotoSync "$PKG_VAR" 2>/dev/null || true
-# Ensure sudoers entry exists (may be missing from older versions)
-cat > /etc/sudoers.d/iCloudPhotoSync <<'SUDOEOF'
-iCloudPhotoSync ALL=(root) NOPASSWD: /usr/syno/sbin/synoshare
-iCloudPhotoSync ALL=(root) NOPASSWD: /usr/syno/bin/synopkg install /tmp/ics_update_*
-SUDOEOF
-chmod 440 /etc/sudoers.d/iCloudPhotoSync
+# Explicitly drop dangerous privileges left by older standalone builds.
+rm -f /etc/sudoers.d/iCloudPhotoSync 2>/dev/null || true
 rm -f /etc/cron.d/iCloudPhotoSync 2>/dev/null || true
 exit 0
 EOF

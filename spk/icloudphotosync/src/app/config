@@ -3,7 +3,7 @@
         "SYNO.SDS.iCloudPhotoSync.Instance": {
             "type": "app",
             "title": "iCloud Photo Sync",
-            "allUsers": true,
+            "allUsers": false,
             "allowMultiInstance": false,
             "appWindow": "SYNO.SDS.iCloudPhotoSync.MainWindow",
             "icon": "images/icon_{0}.png",

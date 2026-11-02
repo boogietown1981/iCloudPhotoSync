@@ -392,7 +392,7 @@ def _resolve_conflict(path, config, synced_this_run=None, dir_cache=None,
     return None
 
 
-def _download_file(url, dest_path, session=None):
+def _download_file(url, dest_path, session=None, expected_size=None):
     """Download a file from URL to dest_path.
 
     Writes to dest_path + ".part" first, then atomically renames on success.
@@ -420,15 +420,33 @@ def _download_file(url, dest_path, session=None):
             if r.status_code == 410:
                 raise _UrlExpiredError("410 Gone for url: %s" % url)
             r.raise_for_status()
+            received = 0
             with open(tmp_path, "wb") as f:
                 for chunk in r.iter_content(chunk_size=65536):
                     if chunk:
                         f.write(chunk)
+                        received += len(chunk)
                 f.flush()
                 try:
                     os.fsync(f.fileno())
                 except OSError:
                     pass
+            # A 200 response does not prove that the full asset arrived.
+            # Compare both the HTTP body length and Apple's resource size
+            # before the temporary file can replace the final destination.
+            content_length = r.headers.get("Content-Length")
+            if content_length and not r.headers.get("Content-Encoding"):
+                try:
+                    declared = int(content_length)
+                except (TypeError, ValueError):
+                    declared = -1
+                if declared >= 0 and received != declared:
+                    raise IOError("Incomplete download: received %d of %d HTTP bytes" %
+                                  (received, declared))
+            if expected_size is not None and int(expected_size) > 0:
+                if received != int(expected_size):
+                    raise IOError("Asset size mismatch: received %d of %d bytes" %
+                                  (received, int(expected_size)))
             os.chmod(tmp_path, 0o644)
             os.replace(tmp_path, dest_path)
             return True
@@ -1172,10 +1190,12 @@ def _run_sync_locked(account_id):
 
         if should_stop(account_id):
             progress.status = "stopped"
-        elif progress.error:
-            # e.g. "Disk full — sync aborted": reporting "complete" hid the
-            # abort behind a green status
+        elif progress.error or progress.failed_photos > 0:
+            # A partially successful download is not a complete backup.
             progress.status = "error"
+            if progress.failed_photos > 0 and not progress.error:
+                progress.error = "%d photo(s) failed; retry synchronization" % (
+                    progress.failed_photos,)
         else:
             progress.status = "complete"
             if heic_convert_failures:
@@ -1511,7 +1531,9 @@ def _sync_album(account_id, photos_svc, album_name, target_dir, sync_config, pro
             if expiry and expiry < int(time.time()):
                 return (photo, fname, fpath, False, False, True, False)
             try:
-                ok = _download_file(url, fpath, session=session)
+                size = getattr(photo, "size", None)
+                ok = _download_file(url, fpath, session=session,
+                                    expected_size=size if size and int(size) > 0 else None)
             except _UrlExpiredError:
                 return (photo, fname, fpath, False, False, True, False)
             except _DiskFullError:
@@ -1786,15 +1808,17 @@ def _sync_album(account_id, photos_svc, album_name, target_dir, sync_config, pro
                                     break
                             else:
                                 time.sleep(2 + _retry * 3)
-                    if photos is None or should_stop(account_id):
+                    if photos is None:
+                        fetch_errors.append(off)
                         break
-                    if not photos:
+                    if should_stop(account_id) or not photos:
                         break
                     q.put((off, photos))
                     off -= len(photos)
             finally:
                 q.put(None)
 
+        fetch_errors = []
         threads = []
         for i in range(NUM_TRACKS):
             s_start = i * slice_size
@@ -1816,6 +1840,9 @@ def _sync_album(account_id, photos_svc, album_name, target_dir, sync_config, pro
                 continue
             off, photos = item
             _process_batch(photos, off)
+        if fetch_errors and not should_stop(account_id):
+            progress.error = "CloudKit album enumeration failed at offsets %s" % (
+                ", ".join(str(o) for o in fetch_errors[:8]))
     else:
         # Single-track with one-batch-ahead prefetch.  Photostream always
         # lands here (ASCENDING from 0, pages until empty — count-independent).
@@ -1845,6 +1872,9 @@ def _sync_album(account_id, photos_svc, album_name, target_dir, sync_config, pro
             _t_wait = time.time()
             photos = next_future.result()
             perf["fetch_wait"] += time.time() - _t_wait
+            if photos is None:
+                progress.error = "CloudKit album enumeration failed at offset %d" % offset
+                break
             if not photos:
                 break
 
