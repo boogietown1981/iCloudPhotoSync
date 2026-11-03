@@ -356,12 +356,23 @@ Ext.define("SYNO.SDS.iCloudPhotoSync.MainWindow", {
             },
             failure: function (response) {
                 var detail = "";
+                var serverError = "";
                 if (response && response.isTimeout) {
                     detail = " (timeout)";
                 } else if (response && response.status > 0) {
                     detail = " (HTTP " + response.status + ")";
+                    // A DSM authorization failure is distinct from a
+                    // network outage. Display only the structured JSON
+                    // error, never arbitrary HTML/CGI stack traces.
+                    try {
+                        var obj = Ext.decode(response.responseText || "{}");
+                        if (obj && obj.error && typeof obj.error.message === "string") {
+                            serverError = obj.error.message.slice(0, 160);
+                        }
+                    } catch (ignored) {}
                 }
-                if (callback) callback(false, {}, SYNO.SDS.iCloudPhotoSync._T("common:connection_failed") + detail);
+                if (callback) callback(false, {},
+                    serverError || (SYNO.SDS.iCloudPhotoSync._T("common:connection_failed") + detail));
             }
         });
     },

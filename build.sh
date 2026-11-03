@@ -3,7 +3,7 @@
 set -euo pipefail
 
 PKG_NAME="iCloudPhotoSync"
-PKG_VER="1.9.1"
+PKG_VER="1.9.2"
 PKG_REV="1"
 DISPLAY_NAME="iCloud Photo Sync"
 DESCRIPTION="Automatically mirrors your iCloud photo library to a Synology NAS."
@@ -65,7 +65,9 @@ rm -rf "$STAGE"/lib/vendor/bin
 # app/ (DSM web UI — mapped to /webman/3rdparty/PKG_NAME/)
 mkdir -p "$STAGE/app"
 cp "$SRC_DIR"/app/api.cgi "$STAGE/app/"
+cp "$SRC_DIR"/app/api_main.py "$STAGE/app/"
 chmod 755 "$STAGE/app/api.cgi"
+chmod 644 "$STAGE/app/api_main.py"
 cp "$SRC_DIR"/app/config "$STAGE/app/"
 cp "$SRC_DIR"/app/index.html "$STAGE/app/"
 cp "$SRC_DIR"/app/iCloudPhotoSync.js "$STAGE/app/"

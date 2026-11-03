@@ -22,12 +22,19 @@ logger = logging.getLogger(__name__)
 # CGI processes have no logging configured — attach a file handler so
 # album (and pyicloud) log messages are captured for debugging.
 if not logging.root.handlers:
-    _log_dir = os.path.join(config_manager.PKG_VAR, "logs")
-    os.makedirs(_log_dir, exist_ok=True)
-    _fh = logging.FileHandler(os.path.join(_log_dir, "album.log"))
-    _fh.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s"))
-    logging.root.addHandler(_fh)
-    logging.root.setLevel(logging.DEBUG)
+    # CGI may run under DSM's web user, which does not necessarily have
+    # write access to package-private logs. Logging must be best-effort:
+    # refusing to start the whole HTTP API here breaks even /status.
+    try:
+        _log_dir = os.path.join(config_manager.PKG_VAR, "logs")
+        os.makedirs(_log_dir, exist_ok=True)
+        _fh = logging.FileHandler(os.path.join(_log_dir, "album.log"))
+    except OSError:
+        _fh = None
+    if _fh is not None:
+        _fh.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s"))
+        logging.root.addHandler(_fh)
+        logging.root.setLevel(logging.DEBUG)
 
 ADP_ERROR_CODE = 320
 
