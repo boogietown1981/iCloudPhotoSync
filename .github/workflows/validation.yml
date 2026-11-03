@@ -36,6 +36,7 @@ jobs:
           test -f /tmp/ics-spk-check/bin/scheduler.py
           test -f /tmp/ics-spk-check/app/api_main.py
           test -x /tmp/ics-spk-check/app/api.cgi
+          test -f /tmp/ics-spk-check/lib/integrity_report.py
           sh -n /tmp/ics-spk-check/app/api.cgi
           PYTHONPATH=/tmp/ics-spk-check/lib/vendor:/tmp/ics-spk-check/lib \
             python -c 'import ast; ast.parse(open("/tmp/ics-spk-check/app/api_main.py").read())'

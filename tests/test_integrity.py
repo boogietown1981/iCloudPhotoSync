@@ -54,5 +54,54 @@ class IntegrityTests(unittest.TestCase):
         self.assertEqual(s["errors"], 1)
         self.assertTrue(outside.exists())
 
+    def test_complete_report_lists_all_findings_and_preview_is_read_only(self):
+        # First completed audit establishes a baseline.
+        s = integrity_checker.scan("demo")
+        self.assertEqual(s["status"], "complete")
+        self.file.write_bytes(b"changed-contents")
+        from integrity_report import report_page, iter_findings
+        before = self.file.read_bytes()
+        s = integrity_checker.scan("demo")
+        self.assertEqual(s["report_issue_count"], 1)
+        self.assertEqual(s["changed"], 1)
+        findings = list(iter_findings("demo"))
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0]["kind"], "changed")
+        self.assertEqual(findings[0]["path"], "one.heic")
+        page = report_page("demo", offset=0, limit=25)
+        self.assertTrue(page["available"])
+        self.assertEqual(page["total"], 1)
+        self.assertEqual(page["findings"][0]["suggested_action"],
+                         "review_and_redownload_from_icloud")
+        self.assertEqual(before, self.file.read_bytes())
+
+    def test_interrupted_scan_keeps_prior_complete_report(self):
+        integrity_checker.scan("demo")
+        self.file.unlink()
+        integrity_checker.scan("demo")
+        old_report = integrity_checker.report_path("demo")
+        snapshot = Path(old_report).read_bytes()
+        self.file.write_bytes(b"new-image")
+        with mock.patch.object(integrity_checker, "_digest",
+                               side_effect=RuntimeError("synthetic failure")):
+            result = integrity_checker.scan("demo")
+        self.assertEqual(result["status"], "error")
+        self.assertEqual(Path(old_report).read_bytes(), snapshot)
+        from integrity_report import report_page
+        self.assertTrue(report_page("demo")["stale"])
+
+    def test_unsafe_path_is_redacted_in_export(self):
+        outside = self.acc / "hidden-key-file"
+        outside.write_bytes(b"data")
+        self.file.unlink()
+        self.file.symlink_to(outside)
+        integrity_checker.scan("demo")
+        from integrity_report import iter_findings
+        entries = list(iter_findings("demo"))
+        self.assertEqual(entries[0]["kind"], "unsafe")
+        self.assertEqual(entries[0]["path"], "[outside target]")
+        self.assertNotIn("hidden-key-file", str(entries))
+        self.assertTrue(outside.exists())
+
 if __name__ == "__main__":
     unittest.main()

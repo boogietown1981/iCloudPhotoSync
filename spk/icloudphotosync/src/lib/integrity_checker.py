@@ -101,7 +101,8 @@ def _within_target(path, target):
 def scan(account_id):
     if not config_manager.get_account(account_id):
         return {"status": "error", "error": "Account not found"}
-    os.makedirs(config_manager.get_account_dir(account_id), exist_ok=True)
+    root = config_manager.get_account_dir(account_id)
+    os.makedirs(root, exist_ok=True)
     stop_file = _paths(account_id)[3]
     previous = status(account_id)
     state = {
@@ -138,6 +139,10 @@ def scan(account_id):
                         mode="w", encoding="utf-8", dir=root, prefix=".integrity-",
                         suffix=".jsonl.tmp", delete=False) as staged:
                     staged_path = staged.name
+                    # Like the existing progress file, permit read-only
+                    # inspection by the DSM CGI process. No signed Apple
+                    # URLs or credentials are written to this report.
+                    os.chmod(staged_path, 0o644)
                 cache = {}
                 last_save = 0.0
                 with open(staged_path, "w", encoding="utf-8") as report:
