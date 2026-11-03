@@ -91,6 +91,14 @@ spk/icloudphotosync/
       resource             data-share for /volume1/iCloudPhotos
 ```
 
+## v1.9.2 — DSM web connection repair
+
+- The DSM `api.cgi` endpoint now starts the same compatible Python family as the package service, instead of using an arbitrary `/usr/bin/env python3` interpreter.
+- The full Python CGI lives in `app/api_main.py`; the launcher preserves all existing DSM authentication.
+- Album logging no longer breaks even read-only API endpoints when the CGI user cannot write to `album.log`.
+- The frontend reports structured authorization or Python prerequisites errors instead of a generic connection failure.
+- If the web request still fails, check the HTTP response code (403 indicates a DSM authorization problem; 404 an app/CGI routing problem; 500 a backend error). Avoid changing permissions broadly or disabling CSRF.
+
 ## v1.9.1 — Python prerequisite protection
 
 - The standalone installer and spksrc lifecycle select only Python 3.10+ interpreters and reject older Python versions before starting.

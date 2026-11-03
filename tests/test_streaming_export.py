@@ -22,11 +22,11 @@ config_manager.PKG_VAR = _TEST_PKG.name
 import requests
 import importlib.util
 
-spec = importlib.util.spec_from_file_location("ics_api", APP / "api.cgi")
-# CGI is a script without .py extension; use a SourceFileLoader explicitly.
+spec = importlib.util.spec_from_file_location("ics_api", APP / "api_main.py")
+# Import the application entrypoint; api.cgi is a POSIX shell launcher.
 from importlib.machinery import SourceFileLoader
 spec = importlib.util.spec_from_loader(
-    "ics_api", SourceFileLoader("ics_api", str(APP / "api.cgi")))
+    "ics_api", SourceFileLoader("ics_api", str(APP / "api_main.py")))
 api = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(api)
 

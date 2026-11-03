@@ -1,7 +1,7 @@
-name: iCloudPhotoSync 1.9.1 validation
+name: iCloudPhotoSync 1.9.2 validation
 on:
   push:
-    branches: [main, fix/v1.9.1-stability-security]
+    branches: [main, fix/v1.9.2-stability-security]
   pull_request:
 
 jobs:
@@ -17,7 +17,7 @@ jobs:
       - name: Python syntax check
         run: python -m compileall -q spk/icloudphotosync/src
       - name: Shell syntax check
-        run: bash -n build.sh && sh -n spk/icloudphotosync/src/service-setup.sh
+        run: bash -n build.sh && sh -n spk/icloudphotosync/src/service-setup.sh && sh -n spk/icloudphotosync/src/app/api.cgi
       - name: DSM JavaScript syntax check
         run: node --check spk/icloudphotosync/src/app/iCloudPhotoSync.js
       - name: Regression tests
@@ -28,15 +28,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -s iCloudPhotoSync-1.9.1.spk
-          test "$(tar -xOf iCloudPhotoSync-1.9.1.spk INFO | grep -c 'version="1.9.1"')" -eq 1
+          test -s iCloudPhotoSync-1.9.2.spk
+          test "$(tar -xOf iCloudPhotoSync-1.9.2.spk INFO | grep -c 'version="1.9.2"')" -eq 1
           mkdir -p /tmp/ics-spk-check
-          tar -xOf iCloudPhotoSync-1.9.1.spk package.tgz | tar -xz -C /tmp/ics-spk-check
+          tar -xOf iCloudPhotoSync-1.9.2.spk package.tgz | tar -xz -C /tmp/ics-spk-check
           PYTHONPATH=/tmp/ics-spk-check/lib/vendor:/tmp/ics-spk-check/lib python -c "import requests, urllib3, config_manager; print(requests.__version__, urllib3.__version__)"
           test -f /tmp/ics-spk-check/bin/scheduler.py
+          test -f /tmp/ics-spk-check/app/api_main.py
+          test -x /tmp/ics-spk-check/app/api.cgi
+          sh -n /tmp/ics-spk-check/app/api.cgi
+          PYTHONPATH=/tmp/ics-spk-check/lib/vendor:/tmp/ics-spk-check/lib \
+            python -c 'import ast; ast.parse(open("/tmp/ics-spk-check/app/api_main.py").read())'
       - name: Upload verified SPK
         uses: actions/upload-artifact@v4
         with:
-          name: iCloudPhotoSync-1.9.1-noarch
-          path: iCloudPhotoSync-1.9.1.spk
+          name: iCloudPhotoSync-1.9.2-noarch
+          path: iCloudPhotoSync-1.9.2.spk
           retention-days: 30
