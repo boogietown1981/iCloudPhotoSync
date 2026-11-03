@@ -726,6 +726,29 @@ def main():
     if method == "log_export":
         export_logs_zip()
         return
+    if method == "integrity_export":
+        import integrity_checker
+        import integrity_report
+        import config_manager
+        account_id = _query_param("account_id")
+        if not config_manager.get_account(account_id):
+            print("Status: 404 Not Found")
+            print("Content-Type: text/plain")
+            print()
+            print("Account not found")
+            return
+        if not os.path.isfile(integrity_checker.report_path(account_id)):
+            print("Status: 404 Not Found")
+            print("Content-Type: text/plain")
+            print()
+            print("No completed integrity report")
+            return
+        sys.stdout.buffer.write(b"Content-Type: application/x-ndjson\r\n")
+        sys.stdout.buffer.write(
+            b'Content-Disposition: attachment; filename="iCloudPhotoSync-integrity-report.jsonl"\r\n')
+        sys.stdout.buffer.write(b"Cache-Control: private, no-store\r\n\r\n")
+        integrity_report.stream_report_jsonl(account_id, sys.stdout.buffer)
+        return
 
     params = cgi.FieldStorage()
 

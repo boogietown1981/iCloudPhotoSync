@@ -3430,6 +3430,75 @@ Ext.define("SYNO.SDS.iCloudPhotoSync.LogViewer", {
                         }, true);
                     }
                 }),
+                new SYNO.ux.Button({
+                    text: SYNO.SDS.iCloudPhotoSync._T("log:btn_repair_preview"),
+                    handler: function () {
+                        var overview = self.appWin.detailPanel &&
+                            self.appWin.detailPanel.overviewTab;
+                        var account = overview && overview.currentAccountData;
+                        if (!account || !account.id) {
+                            SYNO.SDS.iCloudPhotoSync._showMsg(
+                                SYNO.SDS.iCloudPhotoSync._T("common:error"),
+                                SYNO.SDS.iCloudPhotoSync._T("log:integrity_no_account"),
+                                "error");
+                            return;
+                        }
+                        var accountId = account.id;
+                        self.appWin.apiRequest("integrity", {
+                            action: "report", account_id: accountId, limit: 20
+                        }, function (success, data, error) {
+                            if (!success) {
+                                SYNO.SDS.iCloudPhotoSync._showMsg(
+                                    SYNO.SDS.iCloudPhotoSync._T("common:error"),
+                                    Ext.util.Format.htmlEncode(error || ""), "error");
+                                return;
+                            }
+                            var lines = [];
+                            var list = (data && data.findings) || [];
+                            for (var i = 0; i < list.length; i++) {
+                                var e = list[i];
+                                lines.push('<li><b>' +
+                                    Ext.util.Format.htmlEncode(e.kind || "unknown") +
+                                    '</b>: ' + Ext.util.Format.htmlEncode(e.path || "") +
+                                    '</li>');
+                            }
+                            var body = Ext.util.Format.htmlEncode(
+                                data && data.available ?
+                                    SYNO.SDS.iCloudPhotoSync._T("log:repair_preview_intro", [data.total || 0]) :
+                                    SYNO.SDS.iCloudPhotoSync._T("log:repair_preview_empty"));
+                            if (data && data.stale) {
+                                body += '<p><b>' + Ext.util.Format.htmlEncode(
+                                    SYNO.SDS.iCloudPhotoSync._T("log:repair_preview_stale")) + '</b></p>';
+                            }
+                            if (lines.length) {
+                                body += '<ul style="max-height:200px;overflow-y:auto;word-break:break-word;">' +
+                                    lines.join("") + '</ul>';
+                            }
+                            SYNO.SDS.iCloudPhotoSync._showDialog({
+                                title: SYNO.SDS.iCloudPhotoSync._T("log:btn_repair_preview"),
+                                msg: body, width: 660, height: 400
+                            });
+                        });
+                    }
+                }),
+                new SYNO.ux.Button({
+                    text: SYNO.SDS.iCloudPhotoSync._T("log:btn_integrity_report"),
+                    handler: function () {
+                        var overview = self.appWin.detailPanel &&
+                            self.appWin.detailPanel.overviewTab;
+                        var account = overview && overview.currentAccountData;
+                        if (!account || !account.id) {
+                            SYNO.SDS.iCloudPhotoSync._showMsg(
+                                SYNO.SDS.iCloudPhotoSync._T("common:error"),
+                                SYNO.SDS.iCloudPhotoSync._T("log:integrity_no_account"),
+                                "error");
+                            return;
+                        }
+                        window.location.href = SYNO.SDS.iCloudPhotoSync.apiUrl(
+                            "method=integrity_export&account_id=" +
+                            encodeURIComponent(account.id));
+                    }
+                }),
                 "->",
                 { xtype: "label", text: SYNO.SDS.iCloudPhotoSync._T("log:label_retention"), style: "font-size: 12px; color: #666; margin-right: 6px;" },
                 this.retentionCombo,
