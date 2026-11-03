@@ -565,6 +565,10 @@ Ext.define("SYNO.SDS.iCloudPhotoSync.DetailPanel", {
             appWin: config.appWin
         });
 
+        this.integrityTab = new SYNO.SDS.iCloudPhotoSync.IntegrityTab({
+            appWin: config.appWin
+        });
+
         this.aboutTab = new SYNO.SDS.iCloudPhotoSync.AboutTab({
             appWin: config.appWin
         });
@@ -581,6 +585,7 @@ Ext.define("SYNO.SDS.iCloudPhotoSync.DetailPanel", {
                 this.albumTab,
                 this.settingsTab,
                 this.logTab,
+                this.integrityTab,
                 this.aboutTab
             ],
             listeners: {
@@ -3375,130 +3380,6 @@ Ext.define("SYNO.SDS.iCloudPhotoSync.LogViewer", {
                         window.location.href = url;
                     }
                 }),
-                new SYNO.ux.Button({
-                    text: SYNO.SDS.iCloudPhotoSync._T("log:btn_integrity"),
-                    handler: function () {
-                        var overview = self.appWin.detailPanel &&
-                            self.appWin.detailPanel.overviewTab;
-                        var account = overview && overview.currentAccountData;
-                        if (!account || !account.id) {
-                            SYNO.SDS.iCloudPhotoSync._showMsg(
-                                SYNO.SDS.iCloudPhotoSync._T("common:error"),
-                                SYNO.SDS.iCloudPhotoSync._T("log:integrity_no_account"),
-                                "error");
-                            return;
-                        }
-                        var accountId = account.id;
-                        self.appWin.apiRequest("integrity", {
-                            action: "start", account_id: accountId
-                        }, function (success, data, error) {
-                            if (!success) {
-                                SYNO.SDS.iCloudPhotoSync._showMsg(
-                                    SYNO.SDS.iCloudPhotoSync._T("common:error"),
-                                    Ext.util.Format.htmlEncode(error || ""), "error");
-                                return;
-                            }
-                            SYNO.SDS.iCloudPhotoSync._showMsg(
-                                SYNO.SDS.iCloudPhotoSync._T("log:btn_integrity"),
-                                SYNO.SDS.iCloudPhotoSync._T("log:integrity_started"),
-                                "info");
-                            var poll = function () {
-                                if (self.isDestroyed) return;
-                                self.appWin.apiRequest("integrity", {
-                                    action: "status", account_id: accountId
-                                }, function (ok, state) {
-                                    if (!ok) return;
-                                    if (state.status === "running" ||
-                                        state.status === "starting" ||
-                                        state.status === "idle") {
-                                        Ext.defer(poll, 3000);
-                                        return;
-                                    }
-                                    var msg = SYNO.SDS.iCloudPhotoSync._T(
-                                        "log:integrity_summary",
-                                        [state.checked || 0, state.verified || 0,
-                                         state.baselined || 0, state.missing || 0,
-                                         state.changed || 0, state.errors || 0]);
-                                    SYNO.SDS.iCloudPhotoSync._showMsg(
-                                        SYNO.SDS.iCloudPhotoSync._T("log:btn_integrity"),
-                                        msg,
-                                        state.status === "issues" ||
-                                        state.status === "error" ? "error" : "info");
-                                });
-                            };
-                            Ext.defer(poll, 3000);
-                        }, true);
-                    }
-                }),
-                new SYNO.ux.Button({
-                    text: SYNO.SDS.iCloudPhotoSync._T("log:btn_repair_preview"),
-                    handler: function () {
-                        var overview = self.appWin.detailPanel &&
-                            self.appWin.detailPanel.overviewTab;
-                        var account = overview && overview.currentAccountData;
-                        if (!account || !account.id) {
-                            SYNO.SDS.iCloudPhotoSync._showMsg(
-                                SYNO.SDS.iCloudPhotoSync._T("common:error"),
-                                SYNO.SDS.iCloudPhotoSync._T("log:integrity_no_account"),
-                                "error");
-                            return;
-                        }
-                        var accountId = account.id;
-                        self.appWin.apiRequest("integrity", {
-                            action: "report", account_id: accountId, limit: 20
-                        }, function (success, data, error) {
-                            if (!success) {
-                                SYNO.SDS.iCloudPhotoSync._showMsg(
-                                    SYNO.SDS.iCloudPhotoSync._T("common:error"),
-                                    Ext.util.Format.htmlEncode(error || ""), "error");
-                                return;
-                            }
-                            var lines = [];
-                            var list = (data && data.findings) || [];
-                            for (var i = 0; i < list.length; i++) {
-                                var e = list[i];
-                                lines.push('<li><b>' +
-                                    Ext.util.Format.htmlEncode(e.kind || "unknown") +
-                                    '</b>: ' + Ext.util.Format.htmlEncode(e.path || "") +
-                                    '</li>');
-                            }
-                            var body = Ext.util.Format.htmlEncode(
-                                data && data.available ?
-                                    SYNO.SDS.iCloudPhotoSync._T("log:repair_preview_intro", [data.total || 0]) :
-                                    SYNO.SDS.iCloudPhotoSync._T("log:repair_preview_empty"));
-                            if (data && data.stale) {
-                                body += '<p><b>' + Ext.util.Format.htmlEncode(
-                                    SYNO.SDS.iCloudPhotoSync._T("log:repair_preview_stale")) + '</b></p>';
-                            }
-                            if (lines.length) {
-                                body += '<ul style="max-height:200px;overflow-y:auto;word-break:break-word;">' +
-                                    lines.join("") + '</ul>';
-                            }
-                            SYNO.SDS.iCloudPhotoSync._showDialog({
-                                title: SYNO.SDS.iCloudPhotoSync._T("log:btn_repair_preview"),
-                                msg: body, width: 660, height: 400
-                            });
-                        });
-                    }
-                }),
-                new SYNO.ux.Button({
-                    text: SYNO.SDS.iCloudPhotoSync._T("log:btn_integrity_report"),
-                    handler: function () {
-                        var overview = self.appWin.detailPanel &&
-                            self.appWin.detailPanel.overviewTab;
-                        var account = overview && overview.currentAccountData;
-                        if (!account || !account.id) {
-                            SYNO.SDS.iCloudPhotoSync._showMsg(
-                                SYNO.SDS.iCloudPhotoSync._T("common:error"),
-                                SYNO.SDS.iCloudPhotoSync._T("log:integrity_no_account"),
-                                "error");
-                            return;
-                        }
-                        window.location.href = SYNO.SDS.iCloudPhotoSync.apiUrl(
-                            "method=integrity_export&account_id=" +
-                            encodeURIComponent(account.id));
-                    }
-                }),
                 "->",
                 { xtype: "label", text: SYNO.SDS.iCloudPhotoSync._T("log:label_retention"), style: "font-size: 12px; color: #666; margin-right: 6px;" },
                 this.retentionCombo,
@@ -3517,6 +3398,230 @@ Ext.define("SYNO.SDS.iCloudPhotoSync.LogViewer", {
             if (self.logStore.getCount() === 0) {
                 self.logStore.load({ params: { start: 0, limit: pageSize } });
             }
+        });
+    }
+});
+
+// --- Photo Integrity (dedicated tab; never placed in overflowing Log toolbar) ---
+Ext.define("SYNO.SDS.iCloudPhotoSync.IntegrityTab", {
+    extend: "Ext.Panel",
+
+    constructor: function (config) {
+        var self = this;
+        this.appWin = config.appWin;
+        this._scanPollGeneration = 0;
+
+        this.statusPanel = new Ext.Panel({
+            border: false,
+            height: 175,
+            bodyStyle: "padding:15px 17px;background:#f5f8fa;border:1px solid #e0e5eb;",
+            html: '<div style="color:#555;">' +
+                Ext.util.Format.htmlEncode(SYNO.SDS.iCloudPhotoSync._T("integrity:status_idle")) +
+                '</div>'
+        });
+
+        var startBtn = new SYNO.ux.Button({
+            text: SYNO.SDS.iCloudPhotoSync._T("log:btn_integrity"),
+            width: 265,
+            handler: function () { self._startScan(); }
+        });
+        var previewBtn = new SYNO.ux.Button({
+            text: SYNO.SDS.iCloudPhotoSync._T("log:btn_repair_preview"),
+            width: 265,
+            handler: function () { self._preview(); }
+        });
+        var exportBtn = new SYNO.ux.Button({
+            text: SYNO.SDS.iCloudPhotoSync._T("log:btn_integrity_report"),
+            width: 265,
+            handler: function () { self._exportReport(); }
+        });
+
+        // Each action is in its own full row: the buttons stay visible even
+        // at the minimum DSM window width, unlike a crowded toolbar.
+        var actionRows = [startBtn, previewBtn, exportBtn].map(function (btn) {
+            return new Ext.Panel({
+                border: false,
+                height: 46,
+                items: [btn]
+            });
+        });
+
+        var intro = new Ext.Panel({
+            border: false,
+            height: 110,
+            html: '<div style="padding-bottom:10px;">' +
+                '<div style="font-size:18px;font-weight:600;margin-bottom:7px;">' +
+                Ext.util.Format.htmlEncode(SYNO.SDS.iCloudPhotoSync._T("integrity:title")) +
+                '</div>' +
+                '<div style="font-size:13px;color:#666;line-height:1.6;">' +
+                Ext.util.Format.htmlEncode(SYNO.SDS.iCloudPhotoSync._T("integrity:description")) +
+                '</div></div>'
+        });
+
+        var cfg = Ext.apply({
+            title: SYNO.SDS.iCloudPhotoSync._T("tab:integrity"),
+            border: false,
+            autoScroll: true,
+            bodyStyle: "padding:22px 24px;background:#fff;",
+            items: [intro].concat(actionRows).concat([this.statusPanel])
+        }, config);
+        delete cfg.appWin;
+        this.callParent([cfg]);
+        this.on("activate", function () {
+            self._scanPollGeneration++;
+            self._refreshStatus(self._scanPollGeneration, 0);
+        });
+    },
+
+    _accountId: function () {
+        var panel = this.appWin && this.appWin.detailPanel;
+        var account = panel && panel.currentAccount;
+        return account && account.id ? account.id : "";
+    },
+
+    _requireAccount: function () {
+        var accountId = this._accountId();
+        if (!accountId) {
+            SYNO.SDS.iCloudPhotoSync._showMsg(
+                SYNO.SDS.iCloudPhotoSync._T("common:error"),
+                SYNO.SDS.iCloudPhotoSync._T("log:integrity_no_account"), "error");
+        }
+        return accountId;
+    },
+
+    _setStatus: function (state) {
+        if (!this.statusPanel || !this.statusPanel.body) return;
+        var T = SYNO.SDS.iCloudPhotoSync._T;
+        var esc = Ext.util.Format.htmlEncode;
+        var label = T("integrity:status_" + (state.status || "idle"));
+        if (label === "integrity:status_" + (state.status || "idle")) {
+            label = state.status || "idle";
+        }
+        var details = "";
+        if (state.checked !== undefined) {
+            details = T("log:integrity_summary",
+                [state.checked || 0, state.verified || 0, state.baselined || 0,
+                 state.missing || 0, state.changed || 0, state.errors || 0]);
+        }
+        var body = '<div style="font-weight:600;margin-bottom:9px;">' + esc(label) + '</div>' +
+            '<div style="font-size:13px;line-height:1.55;word-break:break-word;">' +
+            esc(details) + '</div>';
+        if (state.error) {
+            body += '<div style="color:#aa2626;margin-top:8px;">' +
+                esc(String(state.error).slice(0,300)) + '</div>';
+        }
+        this.statusPanel.body.update(body);
+    },
+
+    _refreshStatus: function (generation, retries) {
+        var self = this;
+        var accountId = this._accountId();
+        if (!accountId) {
+            this._setStatus({status: "no_account"});
+            return;
+        }
+        this.appWin.apiRequest("integrity", {
+            action: "status", account_id: accountId
+        }, function (success, state, err) {
+            if (self.isDestroyed || generation !== self._scanPollGeneration ||
+                accountId !== self._accountId()) return;
+            if (!success) {
+                self._setStatus({status: "error", error: err || ""});
+                return;
+            }
+            state = state || {};
+            self._setStatus(state);
+            var active = state.status === "running" || state.status === "starting";
+            // Detached scan process may not have created its progress JSON
+            // when the first status request arrives.
+            var startupPending = state.status === "idle" && retries < 8;
+            if (active || startupPending) {
+                Ext.defer(function () {
+                    if (!self.isDestroyed && generation === self._scanPollGeneration &&
+                        accountId === self._accountId()) {
+                        self._refreshStatus(generation, retries + 1);
+                    }
+                }, active ? 4000 : 1500);
+            }
+        });
+    },
+
+    _startScan: function () {
+        var accountId = this._requireAccount();
+        if (!accountId) return;
+        var self = this;
+        this.appWin.apiRequest("integrity", {
+            action: "start", account_id: accountId
+        }, function (success, data, error) {
+            if (!success) {
+                SYNO.SDS.iCloudPhotoSync._showMsg(
+                    SYNO.SDS.iCloudPhotoSync._T("common:error"),
+                    Ext.util.Format.htmlEncode(error || ""), "error");
+                return;
+            }
+            self._setStatus({status: "starting"});
+            self._scanPollGeneration++;
+            var generation = self._scanPollGeneration;
+            Ext.defer(function () {
+                if (!self.isDestroyed) self._refreshStatus(generation, 0);
+            }, 1500);
+        }, true);
+    },
+
+    _preview: function () {
+        var accountId = this._requireAccount();
+        if (!accountId) return;
+        this.appWin.apiRequest("integrity", {
+            action: "report", account_id: accountId, limit: 20
+        }, function (success, data, error) {
+            if (!success) {
+                SYNO.SDS.iCloudPhotoSync._showMsg(
+                    SYNO.SDS.iCloudPhotoSync._T("common:error"),
+                    Ext.util.Format.htmlEncode(error || ""), "error");
+                return;
+            }
+            var esc = Ext.util.Format.htmlEncode;
+            var body = esc(data && data.available ?
+                SYNO.SDS.iCloudPhotoSync._T("log:repair_preview_intro",
+                    [data.total || 0]) :
+                SYNO.SDS.iCloudPhotoSync._T("log:repair_preview_empty"));
+            if (data && data.stale) {
+                body += '<p><b>' +
+                    esc(SYNO.SDS.iCloudPhotoSync._T("log:repair_preview_stale")) +
+                    '</b></p>';
+            }
+            var findings = (data && data.findings) || [];
+            if (findings.length) {
+                body += '<ul style="max-height:190px;overflow-y:auto;word-break:break-word;">';
+                for (var i = 0; i < findings.length; i++) {
+                    body += '<li><b>' + esc(String(findings[i].kind || "")) +
+                        '</b>: ' + esc(String(findings[i].path || "")) + '</li>';
+                }
+                body += '</ul>';
+            }
+            SYNO.SDS.iCloudPhotoSync._showDialog({
+                title: SYNO.SDS.iCloudPhotoSync._T("log:btn_repair_preview"),
+                msg: body, width: 650, height: 370
+            });
+        });
+    },
+
+    _exportReport: function () {
+        var accountId = this._requireAccount();
+        if (!accountId) return;
+        this.appWin.apiRequest("integrity", {
+            action: "report", account_id: accountId, limit: 1
+        }, function (success, data, error) {
+            if (!success || !data || !data.available) {
+                SYNO.SDS.iCloudPhotoSync._showMsg(
+                    SYNO.SDS.iCloudPhotoSync._T("common:error"),
+                    Ext.util.Format.htmlEncode(error ||
+                        SYNO.SDS.iCloudPhotoSync._T("log:repair_preview_empty")),
+                    "error");
+                return;
+            }
+            window.location.href = SYNO.SDS.iCloudPhotoSync.apiUrl(
+                "method=integrity_export&account_id=" + encodeURIComponent(accountId));
         });
     }
 });
