@@ -37,6 +37,7 @@ icloudphotosync_extra_install:
 	@install -m 755 src/bin/scheduler.py $(STAGING_INSTALL_PREFIX)/bin/
 	@install -m 755 src/bin/sync_runner.py $(STAGING_INSTALL_PREFIX)/bin/
 	@install -m 755 src/bin/move_runner.py $(STAGING_INSTALL_PREFIX)/bin/
+	@install -m 755 src/bin/integrity_runner.py $(STAGING_INSTALL_PREFIX)/bin/
 	@# Python library modules
 	@cp -R src/lib/*.py $(STAGING_INSTALL_PREFIX)/lib/
 	@cp -R src/lib/handlers $(STAGING_INSTALL_PREFIX)/lib/

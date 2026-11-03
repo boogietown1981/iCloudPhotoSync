@@ -25,6 +25,7 @@ mkdir -p "$STAGE/bin"
 cp "$SRC_DIR"/bin/scheduler.py "$STAGE/bin/"
 cp "$SRC_DIR"/bin/sync_runner.py "$STAGE/bin/"
 cp "$SRC_DIR"/bin/move_runner.py "$STAGE/bin/"
+cp "$SRC_DIR"/bin/integrity_runner.py "$STAGE/bin/"
 chmod 755 "$STAGE"/bin/*.py
 cp -R "$SRC_DIR/bin/heif" "$STAGE/bin/"
 chmod +x "$STAGE"/bin/heif/*/heif-convert 2>/dev/null || true
@@ -178,9 +179,11 @@ except Exception as e:
         }
         pkill -f "$TARGET_DIR/bin/sync_runner.py" 2>/dev/null || true
         pkill -f "$TARGET_DIR/bin/scheduler.py" 2>/dev/null || true
+        pkill -f "$TARGET_DIR/bin/integrity_runner.py" 2>/dev/null || true
         sleep 1
         pkill -9 -f "$TARGET_DIR/bin/sync_runner.py" 2>/dev/null || true
         pkill -9 -f "$TARGET_DIR/bin/scheduler.py" 2>/dev/null || true
+        pkill -9 -f "$TARGET_DIR/bin/integrity_runner.py" 2>/dev/null || true
         exit 0
         ;;
     status)
@@ -236,9 +239,11 @@ cat > "$BUILD_DIR/scripts/preuninst" <<'EOF'
 TARGET_DIR="/var/packages/iCloudPhotoSync/target"
 pkill -f "$TARGET_DIR/bin/sync_runner.py" 2>/dev/null || true
 pkill -f "$TARGET_DIR/bin/scheduler.py" 2>/dev/null || true
+        pkill -f "$TARGET_DIR/bin/integrity_runner.py" 2>/dev/null || true
 sleep 1
 pkill -9 -f "$TARGET_DIR/bin/sync_runner.py" 2>/dev/null || true
 pkill -9 -f "$TARGET_DIR/bin/scheduler.py" 2>/dev/null || true
+        pkill -9 -f "$TARGET_DIR/bin/integrity_runner.py" 2>/dev/null || true
 sed -i "/#iCloudPhotoSync/d" /etc/crontab 2>/dev/null || true
 rm -f /etc/cron.d/iCloudPhotoSync 2>/dev/null || true
 rm -f /etc/sudoers.d/iCloudPhotoSync 2>/dev/null || true

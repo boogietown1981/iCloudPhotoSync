@@ -75,9 +75,11 @@ log_startup_err() {
 kill_package_processes() {
     pkill -f "${SYNOPKG_PKGDEST}/bin/sync_runner.py" 2>/dev/null || true
     pkill -f "${SYNOPKG_PKGDEST}/bin/scheduler.py" 2>/dev/null || true
+    pkill -f "${SYNOPKG_PKGDEST}/bin/integrity_runner.py" 2>/dev/null || true
     sleep 1
     pkill -9 -f "${SYNOPKG_PKGDEST}/bin/sync_runner.py" 2>/dev/null || true
     pkill -9 -f "${SYNOPKG_PKGDEST}/bin/scheduler.py" 2>/dev/null || true
+    pkill -9 -f "${SYNOPKG_PKGDEST}/bin/integrity_runner.py" 2>/dev/null || true
 }
 
 clean_legacy_artifacts() {

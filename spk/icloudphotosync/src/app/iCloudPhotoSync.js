@@ -3364,6 +3364,61 @@ Ext.define("SYNO.SDS.iCloudPhotoSync.LogViewer", {
                         window.location.href = url;
                     }
                 }),
+                new SYNO.ux.Button({
+                    text: SYNO.SDS.iCloudPhotoSync._T("log:btn_integrity"),
+                    handler: function () {
+                        var overview = self.appWin.detailPanel &&
+                            self.appWin.detailPanel.overviewTab;
+                        var account = overview && overview.currentAccountData;
+                        if (!account || !account.id) {
+                            SYNO.SDS.iCloudPhotoSync._showMsg(
+                                SYNO.SDS.iCloudPhotoSync._T("common:error"),
+                                SYNO.SDS.iCloudPhotoSync._T("log:integrity_no_account"),
+                                "error");
+                            return;
+                        }
+                        var accountId = account.id;
+                        self.appWin.apiRequest("integrity", {
+                            action: "start", account_id: accountId
+                        }, function (success, data, error) {
+                            if (!success) {
+                                SYNO.SDS.iCloudPhotoSync._showMsg(
+                                    SYNO.SDS.iCloudPhotoSync._T("common:error"),
+                                    Ext.util.Format.htmlEncode(error || ""), "error");
+                                return;
+                            }
+                            SYNO.SDS.iCloudPhotoSync._showMsg(
+                                SYNO.SDS.iCloudPhotoSync._T("log:btn_integrity"),
+                                SYNO.SDS.iCloudPhotoSync._T("log:integrity_started"),
+                                "info");
+                            var poll = function () {
+                                if (self.isDestroyed) return;
+                                self.appWin.apiRequest("integrity", {
+                                    action: "status", account_id: accountId
+                                }, function (ok, state) {
+                                    if (!ok) return;
+                                    if (state.status === "running" ||
+                                        state.status === "starting" ||
+                                        state.status === "idle") {
+                                        Ext.defer(poll, 3000);
+                                        return;
+                                    }
+                                    var msg = SYNO.SDS.iCloudPhotoSync._T(
+                                        "log:integrity_summary",
+                                        [state.checked || 0, state.verified || 0,
+                                         state.baselined || 0, state.missing || 0,
+                                         state.changed || 0, state.errors || 0]);
+                                    SYNO.SDS.iCloudPhotoSync._showMsg(
+                                        SYNO.SDS.iCloudPhotoSync._T("log:btn_integrity"),
+                                        msg,
+                                        state.status === "issues" ||
+                                        state.status === "error" ? "error" : "info");
+                                });
+                            };
+                            Ext.defer(poll, 3000);
+                        }, true);
+                    }
+                }),
                 "->",
                 { xtype: "label", text: SYNO.SDS.iCloudPhotoSync._T("log:label_retention"), style: "font-size: 12px; color: #666; margin-right: 6px;" },
                 this.retentionCombo,

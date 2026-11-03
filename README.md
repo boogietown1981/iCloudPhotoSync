@@ -94,6 +94,7 @@ spk/icloudphotosync/
 ## v1.9.0 — streaming exports and integrity checks
 
 - Native browser ZIP downloads: no complete ZIP buffering in the NAS CGI or browser JavaScript.
+- On-demand SHA-256 photo integrity audit in the Logs tab. The first scan builds a local baseline for old files; following scans detect missing or subsequently modified files. The scan never deletes photos, and it does not claim that a legacy file originally matched iCloud.
 - Per-asset temporary downloads use the package data volume, capped at 12 GiB each; the ZIP includes _EXPORT_ERRORS.txt if some items fail.
 - HTTP libraries updated to modern pinned releases; only architecture-independent Python wheels are bundled.
 - Requires Python **3.10+**; use Python 3.11 on DSM 7.2. Test iCloud login and 2FA with the upgraded libraries.

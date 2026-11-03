@@ -29,6 +29,7 @@ from handlers import config as config_handler
 from handlers import log as log_handler
 from handlers import move as move_handler
 from handlers import update as update_handler
+from handlers import integrity as integrity_handler
 
 HANDLERS = {
     "status": status_handler.handle,
@@ -40,6 +41,7 @@ HANDLERS = {
     "log": log_handler.handle,
     "move": move_handler.handle,
     "update": update_handler.handle,
+    "integrity": integrity_handler.handle,
 }
 
 
