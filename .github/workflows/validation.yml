@@ -12,6 +12,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Install pinned HTTP dependencies
+        run: python -m pip install -r spk/icloudphotosync/src/requirements-pure.txt
       - name: Python syntax check
         run: python -m compileall -q spk/icloudphotosync/src
       - name: Shell syntax check

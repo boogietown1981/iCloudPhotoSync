@@ -9,7 +9,9 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 LIB = ROOT / "spk" / "icloudphotosync" / "src" / "lib"
 sys.path.insert(0, str(LIB))
-sys.path.insert(0, str(LIB / "vendor"))
+# The build refreshes pinned HTTP packages at packaging time; tests use
+# the same pinned pip stack rather than the incomplete checked-in legacy tree.
+import requests  # noqa: F401
 
 import move_engine
 import sync_engine

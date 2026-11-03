@@ -43,18 +43,22 @@ if command -v pip3 >/dev/null 2>&1; then
 elif command -v pip >/dev/null 2>&1; then
     PIP_CMD=pip
 else
-    echo "WARNING: pip not found — skipping dependency install."
-    echo "         The .spk will only work if the NAS has 'requests' installed system-wide."
-    PIP_CMD=""
+    echo "ERROR: pip is required to bundle a complete Python HTTP stack."
+    exit 1
 fi
-if [ -n "$PIP_CMD" ]; then
-    $PIP_CMD install --target "$STAGE/lib/vendor" \
-        --no-compile --no-deps \
-        -r "$SRC_DIR/requirements-pure.txt" \
-        2>&1 | sed 's/^/    /'
-    rm -rf "$STAGE"/lib/vendor/*.dist-info
-    rm -rf "$STAGE"/lib/vendor/bin
-fi
+# The checked-in vendor tree contains an incomplete legacy urllib3 1.26.x
+# tree. Leaving it in place makes imports fail even on a NAS with Python.
+# Start clean for these pure-Python dependencies before installing pinned versions.
+rm -rf "$STAGE/lib/vendor/requests" "$STAGE/lib/vendor/urllib3" \
+       "$STAGE/lib/vendor/certifi" "$STAGE/lib/vendor/idna" \
+       "$STAGE/lib/vendor/charset_normalizer"
+$PIP_CMD install --target "$STAGE/lib/vendor" \
+    --no-compile --no-deps \
+    -r "$SRC_DIR/requirements-pure.txt" \
+    2>&1 | sed 's/^/    /'
+rm -rf "$STAGE"/lib/vendor/*.dist-info
+rm -rf "$STAGE"/lib/vendor/bin
+
 
 # app/ (DSM web UI — mapped to /webman/3rdparty/PKG_NAME/)
 mkdir -p "$STAGE/app"

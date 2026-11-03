@@ -41,6 +41,14 @@ icloudphotosync_extra_install:
 	@cp -R src/lib/*.py $(STAGING_INSTALL_PREFIX)/lib/
 	@cp -R src/lib/handlers $(STAGING_INSTALL_PREFIX)/lib/
 	@cp -R src/lib/vendor $(STAGING_INSTALL_PREFIX)/lib/
+	@# Replace incomplete vendored HTTP packages with pinned, complete wheels.
+	@rm -rf $(STAGING_INSTALL_PREFIX)/lib/vendor/requests \
+	    $(STAGING_INSTALL_PREFIX)/lib/vendor/urllib3 \
+	    $(STAGING_INSTALL_PREFIX)/lib/vendor/certifi \
+	    $(STAGING_INSTALL_PREFIX)/lib/vendor/idna \
+	    $(STAGING_INSTALL_PREFIX)/lib/vendor/charset_normalizer
+	@python3 -m pip install --no-deps --no-compile --disable-pip-version-check \
+	    --target $(STAGING_INSTALL_PREFIX)/lib/vendor -r src/requirements-pure.txt
 	@cp -R src/app/* $(STAGING_INSTALL_PREFIX)/app/
 	@# DSM configuration
 	@install -d -m 755 $(STAGING_INSTALL_PREFIX)/conf
