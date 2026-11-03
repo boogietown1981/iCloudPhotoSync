@@ -3,7 +3,7 @@
 set -euo pipefail
 
 PKG_NAME="iCloudPhotoSync"
-PKG_VER="1.9.0"
+PKG_VER="1.9.1"
 PKG_REV="1"
 DISPLAY_NAME="iCloud Photo Sync"
 DESCRIPTION="Automatically mirrors your iCloud photo library to a Synology NAS."
@@ -109,9 +109,14 @@ find_python() {
         /usr/local/bin/python3 \
         /var/packages/py3k/target/usr/bin/python3
     do
-        [ -x "$c" ] && { echo "$c"; return 0; }
+        if [ -x "$c" ] && "$c" -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' 2>/dev/null; then
+            echo "$c"; return 0
+        fi
     done
-    command -v python3 2>/dev/null && return 0
+    c=$(command -v python3 2>/dev/null) || return 1
+    if "$c" -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' 2>/dev/null; then
+        echo "$c"; return 0
+    fi
     return 1
 }
 
@@ -139,7 +144,7 @@ case $1 in
             exit 1
         fi
         [ -f "$SCHEDULER" ] || { echo "Scheduler missing: $SCHEDULER" >> "$STARTUP_ERR"; exit 1; }
-        "$PYTHON" -c "import sys; sys.exit(0)" 2>/dev/null || { echo "Python sanity check failed" >> "$STARTUP_ERR"; exit 1; }
+        "$PYTHON" -c "import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)" 2>/dev/null || { echo "Python 3.10+ required" >> "$STARTUP_ERR"; exit 1; }
         grant_share_access
         SYNOPKG_PKGVAR="$VAR_DIR" ICLOUD_STARTUP_ERR="$STARTUP_ERR" \
             nohup "$PYTHON" "$SCHEDULER" >> "$LOG_FILE" 2>&1 &
@@ -208,7 +213,7 @@ for c in \
     /usr/local/bin/python3 \
     /var/packages/py3k/target/usr/bin/python3
 do
-    [ -x "$c" ] && exit 0
+    [ -x "$c" ] && "$c" -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' 2>/dev/null && exit 0
 done
 if command -v python3 >/dev/null 2>&1; then
     python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' && exit 0
