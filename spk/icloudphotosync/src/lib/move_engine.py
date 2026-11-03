@@ -16,6 +16,8 @@ import logging
 import os
 import shutil
 import time
+import hashlib
+import tempfile
 
 import config_manager
 import sync_manifest
@@ -113,6 +115,38 @@ def _remove_empty_tree(root):
                 os.rmdir(dirpath)
         except OSError:
             pass
+
+
+def _sha256_file(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as src:
+        for chunk in iter(lambda: src.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.digest()
+
+
+def _safe_cross_volume_copy(old_path, new_path):
+    """Copy to a private temporary file, verify and publish without overwrite.
+
+    os.link is an atomic create-if-absent operation on the destination
+    filesystem; a concurrent file cannot be clobbered during the move.
+    """
+    if os.path.lexists(new_path):
+        raise FileExistsError(new_path)
+    fd, tmp_path = tempfile.mkstemp(prefix=".icloudphoto-move-", dir=os.path.dirname(new_path))
+    os.close(fd)
+    try:
+        shutil.copy2(old_path, tmp_path)
+        if os.path.getsize(old_path) != os.path.getsize(tmp_path):
+            raise IOError("Cross-volume copy failed size verification")
+        if _sha256_file(old_path) != _sha256_file(tmp_path):
+            raise IOError("Cross-volume copy failed SHA-256 verification")
+        with open(tmp_path, "rb") as f:
+            os.fsync(f.fileno())
+        os.link(tmp_path, new_path)  # fails with EEXIST; never replaces a file
+    finally:
+        if os.path.lexists(tmp_path):
+            os.unlink(tmp_path)
 
 
 def run_move(account_id, old_dir, new_dir):
@@ -222,6 +256,26 @@ def run_move(account_id, old_dir, new_dir):
                 except OSError:
                     pass
 
+                if os.path.lexists(new_path):
+                    # Both volume paths must refuse to clobber existing data.
+                    # Symlinks are never treated as equivalent photo files.
+                    try:
+                        same = (not os.path.islink(new_path)
+                                and os.path.samefile(old_path, new_path))
+                    except OSError:
+                        same = False
+                    if not same:
+                        LOGGER.warning("Refusing to overwrite existing destination: %s", new_path)
+                        progress.failed_files += 1
+                        progress.error = "Ziel existiert bereits: %s" % rel
+                        continue
+                    sync_manifest.update_path(account_id, record_id, album, new_path)
+                    if old_path != new_path:
+                        os.remove(old_path)
+                    progress.moved_files += 1
+                    progress.bytes_moved += row.get("size") or 0
+                    continue
+
                 if progress.same_volume:
                     # os.rename overwrites the destination on POSIX. If
                     # new_path already exists and isn't the same inode as
@@ -260,28 +314,24 @@ def run_move(account_id, old_dir, new_dir):
                         old_inode = None
 
                     if old_inode is not None and old_inode in inode_to_new:
+                        # Keep hardlinks intact, but never overwrite an existing target.
                         os.link(inode_to_new[old_inode], new_path)
                     else:
-                        shutil.copy2(old_path, new_path)
+                        _safe_cross_volume_copy(old_path, new_path)
                         if old_inode is not None:
                             inode_to_new[old_inode] = new_path
-                    # Only update the manifest after the source is gone.
-                    # If remove fails we leave the manifest pointing to
-                    # old_path so the next move attempt can retry; otherwise
-                    # we'd orphan the file at old_path with no record.
+                    # Commit the new, verified path before removing the original.
+                    # A crash may leave a spare old copy, never an untracked only copy.
+                    sync_manifest.update_path(account_id, record_id, album, new_path)
                     try:
                         os.remove(old_path)
                     except OSError as rm_err:
                         LOGGER.warning(
-                            "Copied to %s but could not remove source %s: %s "
-                            "(manifest left at old path; will retry)",
-                            new_path, old_path, rm_err
-                        )
+                            "Moved to %s but source cleanup failed at %s: %s",
+                            new_path, old_path, rm_err)
                         progress.failed_files += 1
-                        progress.error = "Quelle nicht löschbar: %s" % rel
+                        progress.error = "Alte Datei nicht löschbar: %s" % rel
                         continue
-
-                    sync_manifest.update_path(account_id, record_id, album, new_path)
                     progress.moved_files += 1
                     progress.bytes_moved += row.get("size") or 0
             except OSError as e:
@@ -297,7 +347,9 @@ def run_move(account_id, old_dir, new_dir):
     # Tidy up: remove now-empty directories under the old root.
     if progress.status != "stopped":
         _remove_empty_tree(old_dir)
-        progress.status = "complete"
+        progress.status = "error" if progress.failed_files else "complete"
+        if progress.failed_files and not progress.error:
+            progress.error = "%d file(s) could not be moved" % progress.failed_files
 
     progress.current_file = ""
     progress.finished_at = int(time.time())

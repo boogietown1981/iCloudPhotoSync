@@ -618,10 +618,24 @@ def _dsm_user():
     return lines[-1] if lines else ""
 
 
+def _is_dsm_admin(user):
+    """Authorize DSM administrators only, not merely logged-in DSM users."""
+    try:
+        import grp
+        import pwd
+        account = pwd.getpwnam(user)
+        admin_group = grp.getgrnam("administrators")
+        if account.pw_gid == admin_group.gr_gid or user in admin_group.gr_mem:
+            return True
+        return admin_group.gr_gid in os.getgrouplist(user, account.pw_gid)
+    except (KeyError, OSError, AttributeError):
+        return False
+
+
 def _deny():
     body = json.dumps({"success": False, "error": {
-        "code": 401, "message": "Not logged in to DSM — please reload the page."}})
-    print("Status: 401 Unauthorized")
+        "code": 403, "message": "DSM administrator permissions required."}})
+    print("Status: 403 Forbidden")
     print("Content-Type: application/json")
     print("Content-Length: %d" % len(body))
     print()
@@ -632,7 +646,7 @@ def main():
     # Every endpoint touches Apple credentials, the user's photos or the
     # filesystem — none may be reachable without a DSM login (#77).
     user = _dsm_user()
-    if not user:
+    if not user or not _is_dsm_admin(user):
         _deny()
         return
     # Lets handlers resolve /home/... paths for the requesting user

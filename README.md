@@ -91,6 +91,17 @@ spk/icloudphotosync/
       resource             data-share for /volume1/iCloudPhotos
 ```
 
+## v1.8.0 — stability and security hardening
+
+- DSM administration API is now **administrator-only**. Existing non-admin DSM users will no longer be able to open/manage this package.
+- Synchronization now flags failed asset downloads or incomplete CloudKit enumeration instead of incorrectly displaying a successful backup.
+- Downloaded assets are checked against HTTP Content-Length and Apple's asset byte count when supplied, before the final file replaces its temporary download.
+- Cross-volume moves use a verified temporary copy with SHA-256 comparison and exclusive publication; existing target files are **never** overwritten.
+- An incomplete move reports an error. Standalone builds no longer create sudoers NOPASSWD rules; grant the package user's target share permissions in DSM manually.
+- GitHub PR / release builds should run the regression checks in `tests/` before deployment. Existing SQLite manifests remain unchanged.
+
+> This is a source-level hardening release. Verify on a test NAS with your own iCloud library before upgrading a production installation, and back up your manifest database first.
+
 ## Requirements
 
 - Synology DSM **7.2** or newer
