@@ -91,6 +91,14 @@ spk/icloudphotosync/
       resource             data-share for /volume1/iCloudPhotos
 ```
 
+## v1.9.3 — full integrity reports and safe repair preview
+
+- Every finding from a completed integrity scan is saved as a credential-free JSONL file, rather than keeping just the first 25 examples.
+- DSM Logs tab: **Repair preview** shows the first 20 issues and suggested next steps; **Export audit report** downloads all findings as JSONL for analysis.
+- Reports contain file paths only relative to the photo target and do not include Apple IDs, credentials, signed URLs, or cookies.
+- Interrupted scans retain the previous completed report and mark it as potentially stale. No photos are overwritten or deleted.
+- The preview is intentionally read-only: rebuilding damaged files from iCloud requires an explicitly approved recovery procedure.
+
 ## v1.9.2 — DSM web connection repair
 
 - The DSM `api.cgi` endpoint now starts the same compatible Python family as the package service, instead of using an arbitrary `/usr/bin/env python3` interpreter.

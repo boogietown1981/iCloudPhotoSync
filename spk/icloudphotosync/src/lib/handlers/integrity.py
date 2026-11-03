@@ -5,6 +5,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 import config_manager
 import integrity_checker
+import integrity_report
 
 
 def handle(params):
@@ -14,6 +15,16 @@ def handle(params):
         return {"success": False, "error": {"code": 404, "message": "Account not found"}}
     if action == "status":
         return {"success": True, "data": integrity_checker.status(account_id)}
+    if action == "report":
+        try:
+            offset = int(params.getvalue("offset", "0"))
+            limit = int(params.getvalue("limit", "25"))
+            if offset < 0 or offset > 1000000 or limit < 1:
+                raise ValueError()
+        except (ValueError, TypeError):
+            return {"success": False, "error": {"code": 400, "message": "Invalid paging"}}
+        return {"success": True, "data": integrity_report.report_page(
+            account_id, offset=offset, limit=limit)}
     if action == "stop":
         if not integrity_checker.is_running(account_id):
             return {"success": False, "error": {"code": 409, "message": "No active scan"}}
