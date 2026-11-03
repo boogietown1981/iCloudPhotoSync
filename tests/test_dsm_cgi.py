@@ -37,16 +37,18 @@ class LogInitializationTests(unittest.TestCase):
         import importlib
         import logging
         import config_manager
-        import handlers.album
         orig = config_manager.PKG_VAR
-        try:
-            # Simulate DSM CGI having no package-log write permission.
-            config_manager.PKG_VAR = "/proc/unwritable/icloudphotosync"
-            with mock.patch.object(logging.root, "handlers", []):
-                importlib.reload(handlers.album)
-        finally:
-            config_manager.PKG_VAR = orig
-            importlib.reload(handlers.album)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            try:
+                # Import handlers against an isolated package var directory.
+                config_manager.PKG_VAR = temp_dir
+                import handlers.album
+                # Simulate DSM CGI lacking log folder write permissions.
+                config_manager.PKG_VAR = "/proc/unwritable/icloudphotosync"
+                with mock.patch.object(logging.root, "handlers", []):
+                    importlib.reload(handlers.album)
+            finally:
+                config_manager.PKG_VAR = orig
 
 
 if __name__ == "__main__":
