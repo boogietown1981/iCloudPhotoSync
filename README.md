@@ -91,6 +91,14 @@ spk/icloudphotosync/
       resource             data-share for /volume1/iCloudPhotos
 ```
 
+## v1.9.4 — visible, responsive Integrity tab
+
+- The integrity features now live in their own DSM tab, **Integrität / Integrity**, between Logs and About rather than the crowded Logs toolbar.
+- Three clearly visible action buttons are stacked vertically, so they do not disappear in narrower DSM windows.
+- New translation keys are included in the DSM `preloadTexts` list and registered as a package library component.
+- Shows current integrity scan status and summary on the same tab. Updates do not modify user photos or credentials.
+- After upgrading the SPK, **close the DSM app window and hard-reload the DSM page** to clear cached JavaScript.
+
 ## v1.9.3 — full integrity reports and safe repair preview
 
 - Every finding from a completed integrity scan is saved as a credential-free JSONL file, rather than keeping just the first 25 examples.

@@ -1,7 +1,7 @@
-name: iCloudPhotoSync 1.9.3 validation
+name: iCloudPhotoSync 1.9.4 validation
 on:
   push:
-    branches: [main, fix/v1.9.3-stability-security]
+    branches: [main, fix/v1.9.4-stability-security]
   pull_request:
 
 jobs:
@@ -28,21 +28,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -s iCloudPhotoSync-1.9.3.spk
-          test "$(tar -xOf iCloudPhotoSync-1.9.3.spk INFO | grep -c 'version="1.9.3"')" -eq 1
+          test -s iCloudPhotoSync-1.9.4.spk
+          test "$(tar -xOf iCloudPhotoSync-1.9.4.spk INFO | grep -c 'version="1.9.4"')" -eq 1
           mkdir -p /tmp/ics-spk-check
-          tar -xOf iCloudPhotoSync-1.9.3.spk package.tgz | tar -xz -C /tmp/ics-spk-check
+          tar -xOf iCloudPhotoSync-1.9.4.spk package.tgz | tar -xz -C /tmp/ics-spk-check
           PYTHONPATH=/tmp/ics-spk-check/lib/vendor:/tmp/ics-spk-check/lib python -c "import requests, urllib3, config_manager; print(requests.__version__, urllib3.__version__)"
           test -f /tmp/ics-spk-check/bin/scheduler.py
           test -f /tmp/ics-spk-check/app/api_main.py
           test -x /tmp/ics-spk-check/app/api.cgi
           test -f /tmp/ics-spk-check/lib/integrity_report.py
+          grep -q 'IntegrityTab' /tmp/ics-spk-check/app/iCloudPhotoSync.js
+          grep -q '"tab:integrity"' /tmp/ics-spk-check/app/config
+          grep -q '^integrity' /tmp/ics-spk-check/app/texts/ger/strings
           sh -n /tmp/ics-spk-check/app/api.cgi
           PYTHONPATH=/tmp/ics-spk-check/lib/vendor:/tmp/ics-spk-check/lib \
             python -c 'import ast; ast.parse(open("/tmp/ics-spk-check/app/api_main.py").read())'
       - name: Upload verified SPK
         uses: actions/upload-artifact@v4
         with:
-          name: iCloudPhotoSync-1.9.3-noarch
-          path: iCloudPhotoSync-1.9.3.spk
+          name: iCloudPhotoSync-1.9.4-noarch
+          path: iCloudPhotoSync-1.9.4.spk
           retention-days: 30

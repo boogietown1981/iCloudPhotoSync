@@ -22,6 +22,7 @@ connection_failed	=	"Connection to server failed"
 title	=	"iCloud Photo Sync"
 
 [tab]
+integrity	=	"Integrity"
 overview	=	"Overview"
 albums	=	"Albums"
 settings	=	"Settings"
@@ -186,6 +187,20 @@ confirm_reset_database	=	"The sync database for this account will be cleared. On
 msg_reset_defaults_ok	=	"Settings have been reset to defaults."
 msg_reset_database_ok	=	"Sync database has been cleared. The next sync will re-check all photos."
 msg_reset_failed	=	"Reset failed."
+
+[integrity]
+title	=	"Photo integrity and recovery review"
+description	=	"Audit local files against their SHA-256 baselines. Review and export all findings. No photos are deleted or automatically overwritten."
+status_idle	=	"No audit has run yet."
+status_no_account	=	"Select an iCloud account in the left panel."
+status_running	=	"Integrity scan in progress…"
+status_starting	=	"Starting integrity scan…"
+status_complete	=	"Scan complete – no discrepancies found."
+status_issues	=	"Scan complete – findings detected."
+status_stopped	=	"Scan stopped."
+status_interrupted	=	"Scan interrupted unexpectedly."
+status_error	=	"Scan failed."
+status_busy	=	"A sync or another scan is already running."
 
 [log]
 paging_display	=	"Entries {0} - {1} of {2}"

@@ -22,6 +22,7 @@ connection_failed	=	"Verbindung zum Server fehlgeschlagen"
 title	=	"iCloud Photo Sync"
 
 [tab]
+integrity	=	"Integrität"
 overview	=	"Überblick"
 albums	=	"Alben"
 settings	=	"Einstellungen"
@@ -186,6 +187,20 @@ confirm_reset_database	=	"Die Sync-Datenbank für diesen Account wird geleert. B
 msg_reset_defaults_ok	=	"Einstellungen wurden auf Standardwerte zurückgesetzt."
 msg_reset_database_ok	=	"Sync-Datenbank wurde geleert. Der nächste Sync prüft alle Fotos erneut."
 msg_reset_failed	=	"Zurücksetzen fehlgeschlagen."
+
+[integrity]
+title	=	"Foto-Integrität und Wiederherstellungsprüfung"
+description	=	"Prüfe die lokal gespeicherten Dateien gegen ihre SHA-256-Ausgangswerte. Du kannst alle Auffälligkeiten ansehen und exportieren. Es werden keine Fotos gelöscht oder automatisch überschrieben."
+status_idle	=	"Noch keine Prüfung durchgeführt."
+status_no_account	=	"Bitte zuerst links ein iCloud-Konto auswählen."
+status_running	=	"Integritätsprüfung läuft …"
+status_starting	=	"Integritätsprüfung startet …"
+status_complete	=	"Prüfung abgeschlossen – keine Abweichungen gefunden."
+status_issues	=	"Prüfung abgeschlossen – Auffälligkeiten gefunden."
+status_stopped	=	"Prüfung wurde angehalten."
+status_interrupted	=	"Prüfung wurde unerwartet unterbrochen."
+status_error	=	"Prüfung fehlgeschlagen."
+status_busy	=	"Synchronisierung oder andere Prüfung läuft bereits."
 
 [log]
 paging_display	=	"Einträge {0} - {1} von {2}"
