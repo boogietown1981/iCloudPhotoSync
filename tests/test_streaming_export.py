@@ -13,6 +13,12 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "spk" / "icloudphotosync" / "src" / "app"
 LIB = ROOT / "spk" / "icloudphotosync" / "src" / "lib"
 sys.path.insert(0, str(LIB))
+# DSM packages write logs in their var directory at import time. Provide
+# an isolated fixture path before loading the CGI and its handlers.
+_TEST_PKG = tempfile.TemporaryDirectory()
+os.environ["SYNOPKG_PKGVAR"] = _TEST_PKG.name
+import config_manager
+config_manager.PKG_VAR = _TEST_PKG.name
 import requests
 import importlib.util
 
