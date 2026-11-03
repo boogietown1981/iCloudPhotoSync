@@ -81,7 +81,7 @@ class IntegrityTests(unittest.TestCase):
         integrity_checker.scan("demo")
         old_report = integrity_checker.report_path("demo")
         snapshot = Path(old_report).read_bytes()
-        self.file.write_bytes(b"new-image")
+        self.file.write_bytes(b"newphoto")  # same length as baseline
         with mock.patch.object(integrity_checker, "_digest",
                                side_effect=RuntimeError("synthetic failure")):
             result = integrity_checker.scan("demo")
@@ -102,6 +102,28 @@ class IntegrityTests(unittest.TestCase):
         self.assertEqual(entries[0]["path"], "[outside target]")
         self.assertNotIn("hidden-key-file", str(entries))
         self.assertTrue(outside.exists())
+
+    def test_full_report_exceeds_25_sample_limit(self):
+        from integrity_report import iter_findings, report_page
+        db = sync_manifest._connect("demo")
+        try:
+            for i in range(37):
+                path = self.pics / ("missing_%03d.jpg" % i)
+                db.execute(
+                    "INSERT INTO synced_photos(record_id,album,filename,local_path,size,synced_at) "
+                    "VALUES(?,?,?,?,?,?)",
+                    ("miss_%03d" % i, "all", path.name, str(path), 123, 1))
+            db.commit()
+        finally:
+            db.close()
+        state = integrity_checker.scan("demo")
+        self.assertEqual(state["missing"], 37)
+        self.assertEqual(state["report_issue_count"], 37)
+        self.assertEqual(len(state["samples"]), 25)
+        self.assertEqual(len(list(iter_findings("demo"))), 37)
+        page = report_page("demo", offset=20, limit=30)
+        self.assertEqual(len(page["findings"]), 17)
+        self.assertEqual(page["total"], 37)
 
 if __name__ == "__main__":
     unittest.main()

@@ -139,10 +139,8 @@ def scan(account_id):
                         mode="w", encoding="utf-8", dir=root, prefix=".integrity-",
                         suffix=".jsonl.tmp", delete=False) as staged:
                     staged_path = staged.name
-                    # Like the existing progress file, permit read-only
-                    # inspection by the DSM CGI process. No signed Apple
-                    # URLs or credentials are written to this report.
-                    os.chmod(staged_path, 0o644)
+                    # Keep file names private to the package account.
+                    os.chmod(staged_path, 0o600)
                 cache = {}
                 last_save = 0.0
                 with open(staged_path, "w", encoding="utf-8") as report:
