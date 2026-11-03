@@ -52,9 +52,14 @@ find_python() {
         /var/packages/python3/target/usr/bin/python3 \
         /var/packages/python311/target/bin/python3
     do
-        [ -x "$c" ] && { echo "$c"; return 0; }
+        if [ -x "$c" ] && "$c" -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' 2>/dev/null; then
+            echo "$c"; return 0
+        fi
     done
-    command -v python3 2>/dev/null && return 0
+    c=$(command -v python3 2>/dev/null) || return 1
+    if "$c" -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' 2>/dev/null; then
+        echo "$c"; return 0
+    fi
     return 1
 }
 

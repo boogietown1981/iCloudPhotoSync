@@ -91,6 +91,11 @@ spk/icloudphotosync/
       resource             data-share for /volume1/iCloudPhotos
 ```
 
+## v1.9.1 — Python prerequisite protection
+
+- The standalone installer and spksrc lifecycle select only Python 3.10+ interpreters and reject older Python versions before starting.
+- Python 3.11 is recommended for DSM 7.2+; 1.9.0 features remain unchanged.
+
 ## v1.9.0 — streaming exports and integrity checks
 
 - Native browser ZIP downloads: no complete ZIP buffering in the NAS CGI or browser JavaScript.
