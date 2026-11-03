@@ -91,6 +91,13 @@ spk/icloudphotosync/
       resource             data-share for /volume1/iCloudPhotos
 ```
 
+## v1.9.0 — streaming exports and integrity checks
+
+- Native browser ZIP downloads: no complete ZIP buffering in the NAS CGI or browser JavaScript.
+- Per-asset temporary downloads use the package data volume, capped at 12 GiB each; the ZIP includes _EXPORT_ERRORS.txt if some items fail.
+- HTTP libraries updated to modern pinned releases; only architecture-independent Python wheels are bundled.
+- Requires Python **3.10+**; use Python 3.11 on DSM 7.2. Test iCloud login and 2FA with the upgraded libraries.
+
 ## v1.8.0 — stability and security hardening
 
 - DSM administration API is now **administrator-only**. Existing non-admin DSM users will no longer be able to open/manage this package.
@@ -105,7 +112,7 @@ spk/icloudphotosync/
 ## Requirements
 
 - Synology DSM **7.2** or newer
-- Python 3.8+ (provided by spksrc cross/python311 dependency)
+- Python 3.10+ (recommended: Python 3.11)
 - An Apple ID with 2FA enabled
 - **iCloud Advanced Data Protection (ADP) must be disabled** for iCloud Photos
 

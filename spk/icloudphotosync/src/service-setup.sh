@@ -90,6 +90,10 @@ clean_legacy_artifacts() {
 
 service_preinst() {
     PYTHON=$(find_python)
+    if [ -n "$PYTHON" ] && ! "$PYTHON" -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' 2>/dev/null; then
+        echo "iCloud Photo Sync 1.9.0 requires Python 3.10+ (Synology Python 3.11 recommended)."
+        exit 1
+    fi
     if [ -z "$PYTHON" ]; then
         echo "iCloud Photo Sync requires Python 3. Install the Python 3 package from DSM Package Center or SynoCommunity."
         exit 1
@@ -179,7 +183,7 @@ service_prestart() {
         return 1
     fi
 
-    if ! "$PYTHON" -c "import sys; sys.exit(0)" >> "$STARTUP_ERR" 2>&1; then
+    if ! "$PYTHON" -c "import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)" >> "$STARTUP_ERR" 2>&1; then
         log_startup_err "Python interpreter failed sanity check: $PYTHON"
         return 1
     fi

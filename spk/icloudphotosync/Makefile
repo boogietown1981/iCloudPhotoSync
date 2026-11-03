@@ -1,5 +1,5 @@
 SPK_NAME = icloudphotosync
-SPK_VERS = 1.8.0
+SPK_VERS = 1.9.0
 SPK_REV  = 1
 SPK_ICON = src/PACKAGE_ICON.PNG
 
@@ -10,7 +10,7 @@ UNSUPPORTED_ARCHS = $(OLD_PPC_ARCHS) $(ARMv5_ARCHS)
 MAINTAINER     = Pascal Pagel
 DESCRIPTION    = Automatically mirrors your iCloud photo library to a Synology NAS. Supports multi-account setups, incremental sync, album selection, HEIC conversion, and scheduled operation.
 DISPLAY_NAME   = iCloud Photo Sync
-CHANGELOG      = v1.8.0: reliable partial-failure statuses, verified cross-volume moves, admin-only API, size checks, and privilege hardening.
+CHANGELOG      = v1.9.0: streaming ZIP export, local photo integrity audit, refreshed HTTP dependencies.
 
 HOMEPAGE   = https://github.com/Euphonique/iCloudPhotoSync
 LICENSE    = MIT
@@ -48,6 +48,7 @@ icloudphotosync_extra_install:
 	    $(STAGING_INSTALL_PREFIX)/lib/vendor/idna \
 	    $(STAGING_INSTALL_PREFIX)/lib/vendor/charset_normalizer
 	@python3 -m pip install --no-deps --no-compile --disable-pip-version-check \
+	    --only-binary=:all: --platform any --implementation py --abi none \
 	    --target $(STAGING_INSTALL_PREFIX)/lib/vendor -r src/requirements-pure.txt
 	@cp -R src/app/* $(STAGING_INSTALL_PREFIX)/app/
 	@# DSM configuration

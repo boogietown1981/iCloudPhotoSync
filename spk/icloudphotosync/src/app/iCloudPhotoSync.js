@@ -2226,58 +2226,56 @@ Ext.define("SYNO.SDS.iCloudPhotoSync.AlbumGrid", {
 
     _exportCart: function (onDone) {
         var ids = Object.keys(this._cart || {});
-        if (!ids.length) return;
         var items = [];
         for (var i = 0; i < ids.length; i++) {
-            var e = this._cart[ids[i]];
-            if (!e || !e.url) continue;
-            items.push({ url: e.url, filename: e.filename });
-        }
-        if (!items.length) return;
-
-        var zipname = "iCloud_export.zip";
-        var self = this;
-
-        fetch(SYNO.SDS.iCloudPhotoSync.apiUrl("method=download_zip"), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ items: items, zipname: zipname })
-        }).then(function (r) {
-            if (!r.ok) throw new Error("HTTP " + r.status);
-            var failedHeader = r.headers.get("X-Export-Failed") || "";
-            return r.blob().then(function (blob) {
-                return { blob: blob, failed: failedHeader };
-            });
-        }).then(function (res) {
-            var url = URL.createObjectURL(res.blob);
-            var a = document.createElement("a");
-            a.href = url;
-            a.download = zipname;
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(function () {
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            }, 1000);
-            if (res.failed) {
-                var n = res.failed.split(",").filter(Boolean).length;
-                if (n > 0) {
-                    SYNO.SDS.iCloudPhotoSync._showDialog({
-                        level: "error",
-                        title: SYNO.SDS.iCloudPhotoSync._T("common:error"),
-                        msg: SYNO.SDS.iCloudPhotoSync._T("album:export_partial", [n])
-                    });
-                }
+            var entry = this._cart[ids[i]];
+            if (entry && entry.url) {
+                items.push({ url: entry.url, filename: entry.filename });
             }
+        }
+        if (!items.length) {
+            if (onDone) onDone(false);
+            return;
+        }
+        // A native form download goes straight to the browser download
+        // manager. fetch(...).blob() used to buffer the entire ZIP in RAM.
+        // The backend writes a ZIP stream; failed items are documented
+        // in its _EXPORT_ERRORS.txt entry.
+        try {
+            var frame = document.getElementById("ics-export-frame");
+            if (!frame) {
+                frame = document.createElement("iframe");
+                frame.id = "ics-export-frame";
+                frame.name = "ics-export-frame";
+                frame.style.display = "none";
+                document.body.appendChild(frame);
+            }
+            var form = document.createElement("form");
+            form.method = "POST";
+            form.action = SYNO.SDS.iCloudPhotoSync.apiUrl("method=download_zip");
+            form.target = "ics-export-frame";
+            form.enctype = "application/x-www-form-urlencoded";
+            form.style.display = "none";
+            var field = document.createElement("input");
+            field.type = "hidden";
+            field.name = "payload";
+            field.value = JSON.stringify({items: items, zipname: "iCloud_export.zip"});
+            form.appendChild(field);
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+            // Submission is asynchronous; not a confirmation that every item
+            // succeeded. The ZIP contains _EXPORT_ERRORS.txt if needed.
             if (onDone) onDone(true);
-        }).catch(function (e) {
+        } catch (e) {
             SYNO.SDS.iCloudPhotoSync._showDialog({
                 level: "error",
                 title: SYNO.SDS.iCloudPhotoSync._T("common:error"),
-                msg: SYNO.SDS.iCloudPhotoSync._T("album:export_failed") + " " + (e.message || "")
+                msg: SYNO.SDS.iCloudPhotoSync._T("album:export_failed") + " " +
+                     Ext.util.Format.htmlEncode(e.message || "")
             });
             if (onDone) onDone(false);
-        });
+        }
     },
 
     _openCart: function () {

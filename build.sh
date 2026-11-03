@@ -3,7 +3,7 @@
 set -euo pipefail
 
 PKG_NAME="iCloudPhotoSync"
-PKG_VER="1.8.0"
+PKG_VER="1.9.0"
 PKG_REV="1"
 DISPLAY_NAME="iCloud Photo Sync"
 DESCRIPTION="Automatically mirrors your iCloud photo library to a Synology NAS."
@@ -53,7 +53,8 @@ rm -rf "$STAGE/lib/vendor/requests" "$STAGE/lib/vendor/urllib3" \
        "$STAGE/lib/vendor/certifi" "$STAGE/lib/vendor/idna" \
        "$STAGE/lib/vendor/charset_normalizer"
 $PIP_CMD install --target "$STAGE/lib/vendor" \
-    --no-compile --no-deps \
+    --no-compile --no-deps --only-binary=:all: \
+    --platform any --implementation py --abi none \
     -r "$SRC_DIR/requirements-pure.txt" \
     2>&1 | sed 's/^/    /'
 rm -rf "$STAGE"/lib/vendor/*.dist-info
@@ -206,8 +207,10 @@ for c in \
 do
     [ -x "$c" ] && exit 0
 done
-command -v python3 >/dev/null 2>&1 && exit 0
-echo "Python 3 is required. Install it from Package Center."
+if command -v python3 >/dev/null 2>&1; then
+    python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' && exit 0
+fi
+echo "Python 3.10+ is required. Install Python 3.11 from Package Center."
 exit 1
 EOF
 
