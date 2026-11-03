@@ -29,6 +29,7 @@ from handlers import config as config_handler
 from handlers import log as log_handler
 from handlers import move as move_handler
 from handlers import update as update_handler
+from handlers import integrity as integrity_handler
 
 HANDLERS = {
     "status": status_handler.handle,
@@ -40,6 +41,7 @@ HANDLERS = {
     "log": log_handler.handle,
     "move": move_handler.handle,
     "update": update_handler.handle,
+    "integrity": integrity_handler.handle,
 }
 
 
@@ -65,7 +67,7 @@ def _is_icloud_url(url):
         host = (parsed.hostname or "").lower()
         # China accounts are served from icloud-content.com.cn
         return (
-            parsed.scheme in ("http", "https")
+            parsed.scheme == "https"
             and any(host == d or host.endswith("." + d)
                     for d in ("icloud-content.com", "icloud-content.com.cn"))
         )
@@ -143,68 +145,113 @@ def download_photo():
         print("Fetch failed")
 
 
-def download_zip(raw_body):
-    """Stream a ZIP bundle of multiple iCloud assets. Expects JSON POST body:
-    {"items": [{"url": "...", "filename": "..."}, ...], "zipname": "photos.zip"}
+def _parse_export_request(raw_body, content_type):
+    """Accept browser-native form POSTs and legacy JSON AJAX callers."""
+    if "application/x-www-form-urlencoded" in content_type:
+        fields = urllib.parse.parse_qs(raw_body, max_num_fields=5)
+        return json.loads(fields.get("payload", ["{}"])[0])
+    return json.loads(raw_body or "{}")
+
+
+def _stream_export_zip(items, output, requests_module=None, temp_dir=None):
+    """Bounded-memory ZIP writer; never loads a whole video or ZIP into RAM.
+
+    One temporary media file is stored on the package data volume at a time
+    so failed/incomplete downloads cannot poison the ZIP. Output itself is
+    written to a non-seekable CGI stream. Failed items are listed in-ZIP.
     """
-    import zipfile, io, requests
-    try:
-        payload = json.loads(raw_body or "{}")
-        items = payload.get("items") or []
-        zipname = _safe_filename(payload.get("zipname") or "photos.zip", "photos.zip")
-    except Exception as e:
-        print("Status: 400 Bad Request")
-        print("Content-Type: text/plain")
-        print()
-        print("Invalid payload: %s" % e)
-        return
+    import zipfile
+    import tempfile
+    import shutil
+    import requests as requests_lib
+    import config_manager
 
-    items = [it for it in items if it.get("url") and _is_icloud_url(it["url"])]
-    if not items:
-        print("Status: 400 Bad Request")
-        print("Content-Type: text/plain")
-        print()
-        print("No valid items")
-        return
-
-    buf = io.BytesIO()
-    used = {}
+    requests_module = requests_module or requests_lib
+    temp_dir = temp_dir or config_manager.PKG_VAR
+    os.makedirs(temp_dir, exist_ok=True)
+    max_asset_bytes = 12 * 1024 ** 3
+    reserve_bytes = 128 * 1024 ** 2
     failed = []
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED, allowZip64=True) as zf:
-        for it in items:
-            raw_name = _safe_filename(it.get("filename"))
-            n = used.get(raw_name, 0)
-            used[raw_name] = n + 1
-            name = raw_name
-            if n > 0:
-                dot = raw_name.rfind(".")
-                if dot > 0:
-                    name = "%s_%d%s" % (raw_name[:dot], n, raw_name[dot:])
-                else:
-                    name = "%s_%d" % (raw_name, n)
-            try:
-                resp = requests.get(it["url"], timeout=60)
-                if resp.status_code != 200:
-                    failed.append(raw_name)
-                    continue
-                zf.writestr(name, resp.content)
-            except Exception:
-                failed.append(raw_name)
-                continue
+    used = set()
+    succeeded = 0
 
-    data = buf.getvalue()
+    with zipfile.ZipFile(output, "w", zipfile.ZIP_STORED, allowZip64=True) as zf:
+        for it in items:
+            raw_name = _safe_filename(it.get("filename", "photo"))
+            stem, ext = os.path.splitext(raw_name)
+            name = raw_name
+            seq = 2
+            while name.lower() in used or name == "_EXPORT_ERRORS.txt":
+                name = "%s_%d%s" % (stem, seq, ext)
+                seq += 1
+            used.add(name.lower())
+            try:
+                with requests_module.get(it["url"], timeout=(15, 45), stream=True) as resp:
+                    resp.raise_for_status()
+                    declared = resp.headers.get("Content-Length")
+                    declared_size = int(declared) if declared and declared.isdigit() else None
+                    if declared_size is not None and declared_size > max_asset_bytes:
+                        raise IOError("Asset exceeds 12 GiB export limit")
+                    with tempfile.TemporaryFile(mode="w+b", dir=temp_dir) as tmp:
+                        received = 0
+                        for chunk in resp.iter_content(chunk_size=256 * 1024):
+                            if not chunk:
+                                continue
+                            received += len(chunk)
+                            if received > max_asset_bytes:
+                                raise IOError("Asset exceeds 12 GiB export limit")
+                            if shutil.disk_usage(temp_dir).free < reserve_bytes:
+                                raise IOError("Insufficient free disk space for export")
+                            tmp.write(chunk)
+                        if (declared_size is not None
+                                and not resp.headers.get("Content-Encoding")
+                                and received != declared_size):
+                            raise IOError("Incomplete asset transfer")
+                        tmp.seek(0)
+                        with zf.open(name, "w", force_zip64=True) as entry:
+                            shutil.copyfileobj(tmp, entry, length=1024 * 1024)
+                        succeeded += 1
+            except Exception as exc:
+                # URL often contains signed private query parameters: never
+                # include it or the exception string in exported diagnostics.
+                import logging
+                logging.getLogger("api.export").warning(
+                    "ZIP export skipped item %s (%s)", raw_name,
+                    type(exc).__name__)
+                failed.append(raw_name)
+
+        if failed:
+            text = ("iCloud Photo Sync: %d of %d assets could not be exported.\n"
+                    "Retry these files or their expired download URLs.\n\n" %
+                    (len(failed), len(items)))
+            zf.writestr("_EXPORT_ERRORS.txt", text + "\n".join(failed) + "\n")
+    return {"exported": succeeded, "failed": len(failed)}
+
+
+def download_zip(raw_body):
+    """Stream ZIP directly to browser; multipart asset buffering is disk-only."""
+    try:
+        payload = _parse_export_request(raw_body, os.environ.get("CONTENT_TYPE", ""))
+        items = payload.get("items", [])
+        if not isinstance(items, list) or not 0 < len(items) <= 5000:
+            raise ValueError("Expected 1 to 5000 items")
+        if any(not isinstance(it, dict) or
+               not isinstance(it.get("url"), str) or
+               not _is_icloud_url(it["url"]) for it in items):
+            raise ValueError("Invalid Apple asset URL")
+        zipname = _safe_filename(payload.get("zipname") or "photos.zip", "photos.zip")
+    except (ValueError, TypeError, AttributeError) as exc:
+        print("Status: 400 Bad Request")
+        print("Content-Type: text/plain")
+        print()
+        print("Invalid export request")
+        return
+
     sys.stdout.buffer.write(b"Content-Type: application/zip\r\n")
-    sys.stdout.buffer.write(("Content-Length: %d\r\n" % len(data)).encode())
     sys.stdout.buffer.write(
-        ('Content-Disposition: attachment; filename="%s"\r\n' % zipname).encode()
-    )
-    if failed:
-        # Comma-joined filenames; ASCII only (header-safe). Non-ASCII names are
-        # escaped to avoid breaking the HTTP response.
-        safe_list = ",".join(nm.encode("ascii", "replace").decode("ascii") for nm in failed)
-        sys.stdout.buffer.write(("X-Export-Failed: %s\r\n" % safe_list).encode())
-    sys.stdout.buffer.write(b"\r\n")
-    sys.stdout.buffer.write(data)
+        ('Content-Disposition: attachment; filename="%s"\r\n' % zipname).encode("utf-8"))
+    sys.stdout.buffer.write(b"Cache-Control: private, no-store\r\n\r\n")
+    _stream_export_zip(items, sys.stdout.buffer)
 
 
 def _log_sanitizer():
@@ -663,7 +710,16 @@ def main():
         download_photo()
         return
     if method == "download_zip":
-        length = int(os.environ.get("CONTENT_LENGTH", "0") or 0)
+        try:
+            length = int(os.environ.get("CONTENT_LENGTH", "0") or 0)
+        except ValueError:
+            length = -1
+        if length < 0 or length > 2 * 1024 * 1024:
+            print("Status: 413 Payload Too Large")
+            print("Content-Type: text/plain")
+            print()
+            print("Export selection too large")
+            return
         raw_body = sys.stdin.read(length) if length else ""
         download_zip(raw_body)
         return

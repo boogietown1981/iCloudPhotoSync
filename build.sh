@@ -3,7 +3,7 @@
 set -euo pipefail
 
 PKG_NAME="iCloudPhotoSync"
-PKG_VER="1.8.0"
+PKG_VER="1.9.0"
 PKG_REV="1"
 DISPLAY_NAME="iCloud Photo Sync"
 DESCRIPTION="Automatically mirrors your iCloud photo library to a Synology NAS."
@@ -25,6 +25,7 @@ mkdir -p "$STAGE/bin"
 cp "$SRC_DIR"/bin/scheduler.py "$STAGE/bin/"
 cp "$SRC_DIR"/bin/sync_runner.py "$STAGE/bin/"
 cp "$SRC_DIR"/bin/move_runner.py "$STAGE/bin/"
+cp "$SRC_DIR"/bin/integrity_runner.py "$STAGE/bin/"
 chmod 755 "$STAGE"/bin/*.py
 cp -R "$SRC_DIR/bin/heif" "$STAGE/bin/"
 chmod +x "$STAGE"/bin/heif/*/heif-convert 2>/dev/null || true
@@ -53,7 +54,8 @@ rm -rf "$STAGE/lib/vendor/requests" "$STAGE/lib/vendor/urllib3" \
        "$STAGE/lib/vendor/certifi" "$STAGE/lib/vendor/idna" \
        "$STAGE/lib/vendor/charset_normalizer"
 $PIP_CMD install --target "$STAGE/lib/vendor" \
-    --no-compile --no-deps \
+    --no-compile --no-deps --only-binary=:all: \
+    --platform any --implementation py --abi none \
     -r "$SRC_DIR/requirements-pure.txt" \
     2>&1 | sed 's/^/    /'
 rm -rf "$STAGE"/lib/vendor/*.dist-info
@@ -177,9 +179,11 @@ except Exception as e:
         }
         pkill -f "$TARGET_DIR/bin/sync_runner.py" 2>/dev/null || true
         pkill -f "$TARGET_DIR/bin/scheduler.py" 2>/dev/null || true
+        pkill -f "$TARGET_DIR/bin/integrity_runner.py" 2>/dev/null || true
         sleep 1
         pkill -9 -f "$TARGET_DIR/bin/sync_runner.py" 2>/dev/null || true
         pkill -9 -f "$TARGET_DIR/bin/scheduler.py" 2>/dev/null || true
+        pkill -9 -f "$TARGET_DIR/bin/integrity_runner.py" 2>/dev/null || true
         exit 0
         ;;
     status)
@@ -206,8 +210,10 @@ for c in \
 do
     [ -x "$c" ] && exit 0
 done
-command -v python3 >/dev/null 2>&1 && exit 0
-echo "Python 3 is required. Install it from Package Center."
+if command -v python3 >/dev/null 2>&1; then
+    python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' && exit 0
+fi
+echo "Python 3.10+ is required. Install Python 3.11 from Package Center."
 exit 1
 EOF
 
@@ -233,9 +239,11 @@ cat > "$BUILD_DIR/scripts/preuninst" <<'EOF'
 TARGET_DIR="/var/packages/iCloudPhotoSync/target"
 pkill -f "$TARGET_DIR/bin/sync_runner.py" 2>/dev/null || true
 pkill -f "$TARGET_DIR/bin/scheduler.py" 2>/dev/null || true
+        pkill -f "$TARGET_DIR/bin/integrity_runner.py" 2>/dev/null || true
 sleep 1
 pkill -9 -f "$TARGET_DIR/bin/sync_runner.py" 2>/dev/null || true
 pkill -9 -f "$TARGET_DIR/bin/scheduler.py" 2>/dev/null || true
+        pkill -9 -f "$TARGET_DIR/bin/integrity_runner.py" 2>/dev/null || true
 sed -i "/#iCloudPhotoSync/d" /etc/crontab 2>/dev/null || true
 rm -f /etc/cron.d/iCloudPhotoSync 2>/dev/null || true
 rm -f /etc/sudoers.d/iCloudPhotoSync 2>/dev/null || true
